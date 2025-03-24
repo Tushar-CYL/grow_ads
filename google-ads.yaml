@@ -1,6 +1,8 @@
 developer_token: "HjVv11pZw7EnmYK6dLmlaw"
-client_id: "1066464902006-4517j2n8at66mu7qo4o7kp0rou303pon.apps.googleusercontent.com"
-client_secret: "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"
+# client_id: "1066464902006-4517j2n8at66mu7qo4o7kp0rou303pon.apps.googleusercontent.com"
+client_id: "1066464902006-o0943sb9t0e6g510g7u8bvff3da50j5i.apps.googleusercontent.com"
+client_secret: "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"
+# client_secret: "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"
 refresh_token: "1//0gkde4niI1ukKCgYIARAAGBASNwF-L9IrEj29rszsrXkUrURZtm1rXPM-btD5GrIC7IF47_aMMb835-sTgyOW-zHnD9lFR1iAAg4"
 login_customer_id: "6827724176"
 use_proto_plus: true
