@@ -86,75 +86,89 @@ def index():
 
 @app.route('/login')
 def login():
-    # Create OAuth flow instance
+    # Create OAuth flow instance with explicit client config
     client_config = {
         'web': {
             'client_id': os.environ.get('CLIENT_ID', Config.CLIENT_ID),
             'client_secret': os.environ.get('CLIENT_SECRET', Config.CLIENT_SECRET),
             'auth_uri': Config.AUTH_URI,
             'token_uri': Config.TOKEN_URI,
-            'auth_provider_x509_cert_url': Config.AUTH_PROVIDER_X509_CERT_URL,
             'redirect_uris': [os.environ.get('REDIRECT_URI', Config.REDIRECT_URI)]
         }
     }
+    
+    # Debug output to help troubleshoot
+    print(f"OAuth client_id: {client_config['web']['client_id']}")
+    print(f"OAuth redirect_uri: {client_config['web']['redirect_uris'][0]}")
+    
+    # Check if client_id is empty
+    if not client_config['web']['client_id']:
+        return "Error: CLIENT_ID environment variable is not set. Please configure the OAuth credentials.", 500
+    
     flow = Flow.from_client_config(
         client_config=client_config,
         scopes=["https://www.googleapis.com/auth/adwords", "openid", "https://www.googleapis.com/auth/userinfo.profile", "https://www.googleapis.com/auth/userinfo.email"],
         redirect_uri=os.environ.get('REDIRECT_URI', Config.REDIRECT_URI)
     )
     
-    # Generate URL for request to Google's OAuth 2.0 server
+    # Generate authorization URL
     authorization_url, state = flow.authorization_url(
         access_type='offline',
         include_granted_scopes='true',
         prompt='consent'
     )
     
-    # Store the state in the session for later validation
+    # Store the state in the session
     session['state'] = state
     
-    # Redirect to Google's OAuth 2.0 server
+    # Redirect to authorization URL
     return redirect(authorization_url)
 
 @app.route('/oauth2callback')
 def oauth2callback():
-    try:
-        # Get the flow from the session
-        client_config = {
-            'web': {
-                'client_id': os.environ.get('CLIENT_ID', Config.CLIENT_ID),
-                'client_secret': os.environ.get('CLIENT_SECRET', Config.CLIENT_SECRET),
-                'auth_uri': Config.AUTH_URI,
-                'token_uri': Config.TOKEN_URI,
-                'auth_provider_x509_cert_url': Config.AUTH_PROVIDER_X509_CERT_URL,
-                'redirect_uris': [os.environ.get('REDIRECT_URI', Config.REDIRECT_URI)]
-            }
+    # Validate state to protect against CSRF
+    state = session.get('state')
+    if not state or request.args.get('state') != state:
+        return 'Invalid state parameter. Possible CSRF attack.', 400
+    
+    # Create OAuth flow instance with explicit client config
+    client_config = {
+        'web': {
+            'client_id': os.environ.get('CLIENT_ID', Config.CLIENT_ID),
+            'client_secret': os.environ.get('CLIENT_SECRET', Config.CLIENT_SECRET),
+            'auth_uri': Config.AUTH_URI,
+            'token_uri': Config.TOKEN_URI,
+            'redirect_uris': [os.environ.get('REDIRECT_URI', Config.REDIRECT_URI)]
         }
-        flow = Flow.from_client_config(
-            client_config=client_config,
-            scopes=["https://www.googleapis.com/auth/adwords", "openid", "https://www.googleapis.com/auth/userinfo.profile", "https://www.googleapis.com/auth/userinfo.email"],
-            redirect_uri=os.environ.get('REDIRECT_URI', Config.REDIRECT_URI)
-        )
-        
-        # Use the authorization server's response to fetch the OAuth 2.0 tokens
-        authorization_response = request.url.replace('http://', 'https://') if request.url.startswith('http://') else request.url
-        flow.fetch_token(authorization_response=authorization_response)
-        
-        # Store credentials in session
-        credentials = flow.credentials
-        session['credentials'] = {
-            'token': credentials.token,
-            'refresh_token': credentials.refresh_token,
-            'token_uri': credentials.token_uri,
-            'client_id': credentials.client_id,
-            'client_secret': credentials.client_secret,
-            'scopes': credentials.scopes
-        }
-        
-        return redirect(url_for('dashboard'))
-    except Exception as e:
-        print(f"OAuth Error: {str(e)}")
-        return f"An error occurred during authentication: {str(e)}", 400
+    }
+    
+    # Debug output to help troubleshoot
+    print(f"OAuth callback - client_id: {client_config['web']['client_id']}")
+    print(f"OAuth callback - redirect_uri: {client_config['web']['redirect_uris'][0]}")
+    
+    flow = Flow.from_client_config(
+        client_config=client_config,
+        scopes=["https://www.googleapis.com/auth/adwords", "openid", "https://www.googleapis.com/auth/userinfo.profile", "https://www.googleapis.com/auth/userinfo.email"],
+        redirect_uri=os.environ.get('REDIRECT_URI', Config.REDIRECT_URI),
+        state=state
+    )
+    
+    # Use the authorization server's response to fetch the OAuth 2.0 tokens
+    authorization_response = request.url.replace('http://', 'https://') if request.url.startswith('http://') else request.url
+    flow.fetch_token(authorization_response=authorization_response)
+    
+    # Store credentials in session
+    credentials = flow.credentials
+    session['credentials'] = {
+        'token': credentials.token,
+        'refresh_token': credentials.refresh_token,
+        'token_uri': credentials.token_uri,
+        'client_id': credentials.client_id,
+        'client_secret': credentials.client_secret,
+        'scopes': credentials.scopes
+    }
+    
+    return redirect(url_for('dashboard'))
 
 @app.route('/dashboard')
 def dashboard():
