@@ -14,17 +14,34 @@ import plotly.io as pio
 from config import Config
 import random
 
-# Set environment variable to allow OAuth to work with HTTP (for development only)
-os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+# For production deployment
+if os.environ.get('FLASK_ENV') == 'production':
+    # In production, ensure HTTPS is used for OAuth
+    os.environ.pop('OAUTHLIB_INSECURE_TRANSPORT', None)
+else:
+    # For development only
+    os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
 # Initialize Flask app
 app = Flask(__name__)
-app.secret_key = Config.SECRET_KEY
+# Use environment variable for secret key if available (for deployment)
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', Config.SECRET_KEY)
 app.config['SESSION_TYPE'] = 'filesystem'
 
 # Load Google Ads configuration
-with open('google-ads.yaml', 'r') as yaml_file:
-    google_ads_config = yaml.safe_load(yaml_file)
+def load_google_ads_config():
+    # Try to load from environment variables first (for deployment)
+    if os.environ.get('GOOGLE_ADS_CONFIG'):
+        return json.loads(os.environ.get('GOOGLE_ADS_CONFIG'))
+    # Fall back to yaml file (for development)
+    try:
+        with open('google-ads.yaml', 'r') as yaml_file:
+            return yaml.safe_load(yaml_file)
+    except FileNotFoundError:
+        # Return empty config if file not found
+        return {}
+
+google_ads_config = load_google_ads_config()
 
 # Initialize Google Ads Client
 def get_google_ads_client(credentials):
@@ -45,19 +62,21 @@ def index():
 
 @app.route('/login')
 def login():
-    # Create a flow instance to manage the OAuth 2.0 Authorization Grant Flow
+    # Create OAuth flow instance
+    client_config = {
+        'web': {
+            'client_id': os.environ.get('CLIENT_ID', Config.CLIENT_ID),
+            'client_secret': os.environ.get('CLIENT_SECRET', Config.CLIENT_SECRET),
+            'auth_uri': Config.AUTH_URI,
+            'token_uri': Config.TOKEN_URI,
+            'auth_provider_x509_cert_url': Config.AUTH_PROVIDER_X509_CERT_URL,
+            'redirect_uris': [os.environ.get('REDIRECT_URI', Config.REDIRECT_URI)]
+        }
+    }
     flow = Flow.from_client_config(
-        client_config={
-            "web": {
-                "client_id": google_ads_config['client_id'],
-                "client_secret": google_ads_config['client_secret'],
-                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                "token_uri": "https://oauth2.googleapis.com/token",
-                "redirect_uris": [Config.REDIRECT_URI]
-            }
-        },
+        client_config=client_config,
         scopes=["https://www.googleapis.com/auth/adwords", "openid", "https://www.googleapis.com/auth/userinfo.profile", "https://www.googleapis.com/auth/userinfo.email"],
-        redirect_uri=Config.REDIRECT_URI
+        redirect_uri=os.environ.get('REDIRECT_URI', Config.REDIRECT_URI)
     )
     
     # Generate URL for request to Google's OAuth 2.0 server
@@ -77,18 +96,20 @@ def login():
 def oauth2callback():
     try:
         # Get the flow from the session
+        client_config = {
+            'web': {
+                'client_id': os.environ.get('CLIENT_ID', Config.CLIENT_ID),
+                'client_secret': os.environ.get('CLIENT_SECRET', Config.CLIENT_SECRET),
+                'auth_uri': Config.AUTH_URI,
+                'token_uri': Config.TOKEN_URI,
+                'auth_provider_x509_cert_url': Config.AUTH_PROVIDER_X509_CERT_URL,
+                'redirect_uris': [os.environ.get('REDIRECT_URI', Config.REDIRECT_URI)]
+            }
+        }
         flow = Flow.from_client_config(
-            client_config={
-                "web": {
-                    "client_id": google_ads_config['client_id'],
-                    "client_secret": google_ads_config['client_secret'],
-                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                    "token_uri": "https://oauth2.googleapis.com/token",
-                    "redirect_uris": [Config.REDIRECT_URI]
-                }
-            },
+            client_config=client_config,
             scopes=["https://www.googleapis.com/auth/adwords", "openid", "https://www.googleapis.com/auth/userinfo.profile", "https://www.googleapis.com/auth/userinfo.email"],
-            redirect_uri=Config.REDIRECT_URI
+            redirect_uri=os.environ.get('REDIRECT_URI', Config.REDIRECT_URI)
         )
         
         # Use the authorization server's response to fetch the OAuth 2.0 tokens
