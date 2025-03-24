@@ -198,20 +198,24 @@ def dashboard():
     if 'credentials' not in session:
         return redirect(url_for('login'))
     
+    # Default date range (last 30 days)
+    end_date = datetime.now().strftime('%Y-%m-%d')
+    start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
+    
     # Get accessible customer IDs
     try:
         credentials = session.get('credentials')
         client = get_google_ads_client(credentials)
-        customers = get_accessible_customers(client)
-        print(f"Found {len(customers)} customer accounts")
+        customer_ids = get_accessible_customers(client)
+        print(f"Found {len(customer_ids)} customer accounts")
     except Exception as e:
         # Handle the case where Google Ads client can't be created
         print(f"Error getting customers: {e}")
         # Generate sample data for demonstration
-        customers = ['1234567890', '0987654321']
+        customer_ids = ['1234567890', '0987654321']
         print("Using sample customer IDs for demonstration")
     
-    return render_template('dashboard.html', customers=customers)
+    return render_template('dashboard.html', customer_ids=customer_ids, start_date=start_date, end_date=end_date)
 
 @app.route('/fetch_data', methods=['POST'])
 def fetch_data():
