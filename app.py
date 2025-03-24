@@ -30,15 +30,39 @@ app.config['SESSION_TYPE'] = 'filesystem'
 
 # Load Google Ads configuration
 def load_google_ads_config():
-    # Try to load from environment variables first (for deployment)
+    # Try to load from individual environment variables first (most reliable for deployment)
+    if os.environ.get('GOOGLE_ADS_DEVELOPER_TOKEN'):
+        config = {
+            'developer_token': os.environ.get('GOOGLE_ADS_DEVELOPER_TOKEN'),
+            'client_id': os.environ.get('GOOGLE_ADS_CLIENT_ID', ''),
+            'client_secret': os.environ.get('GOOGLE_ADS_CLIENT_SECRET', '')
+        }
+        
+        # Add optional fields if they exist
+        if os.environ.get('GOOGLE_ADS_LOGIN_CUSTOMER_ID'):
+            config['login_customer_id'] = os.environ.get('GOOGLE_ADS_LOGIN_CUSTOMER_ID')
+            
+        if os.environ.get('GOOGLE_ADS_REFRESH_TOKEN'):
+            config['refresh_token'] = os.environ.get('GOOGLE_ADS_REFRESH_TOKEN')
+            
+        return config
+    
+    # Fall back to JSON environment variable
     if os.environ.get('GOOGLE_ADS_CONFIG'):
-        return json.loads(os.environ.get('GOOGLE_ADS_CONFIG'))
+        try:
+            return json.loads(os.environ.get('GOOGLE_ADS_CONFIG'))
+        except json.JSONDecodeError as e:
+            print(f"Error parsing GOOGLE_ADS_CONFIG: {e}")
+            # Fall back to empty config if JSON is invalid
+            return {}
+    
     # Fall back to yaml file (for development)
     try:
         with open('google-ads.yaml', 'r') as yaml_file:
             return yaml.safe_load(yaml_file)
     except FileNotFoundError:
         # Return empty config if file not found
+        print("Warning: google-ads.yaml file not found")
         return {}
 
 google_ads_config = load_google_ads_config()
@@ -50,7 +74,7 @@ def get_google_ads_client(credentials):
         "client_id": google_ads_config['client_id'],
         "client_secret": google_ads_config['client_secret'],
         "refresh_token": credentials['refresh_token'],
-        "login_customer_id": google_ads_config['login_customer_id'],
+        "login_customer_id": google_ads_config.get('login_customer_id', ''),
         "use_proto_plus": True
     }
     return GoogleAdsClient.load_from_dict(config)
@@ -137,22 +161,17 @@ def dashboard():
     if 'credentials' not in session:
         return redirect(url_for('login'))
     
-    credentials = session['credentials']
-    client = get_google_ads_client(credentials)
+    # Get accessible customer IDs
+    try:
+        credentials = session.get('credentials')
+        client = get_google_ads_client(credentials)
+        customers = get_accessible_customers(client)
+    except Exception as e:
+        # Handle the case where Google Ads client can't be created
+        print(f"Error getting customers: {e}")
+        customers = []
     
-    # Get accessible customer accounts
-    customer_ids = get_accessible_customers(client)
-    
-    # Default date range (last 30 days)
-    end_date = datetime.now().strftime('%Y-%m-%d')
-    start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
-    
-    return render_template(
-        'dashboard.html',
-        customer_ids=customer_ids,
-        start_date=start_date,
-        end_date=end_date
-    )
+    return render_template('dashboard.html', customers=customers)
 
 @app.route('/fetch_data', methods=['POST'])
 def fetch_data():
