@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Google Ads Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.1/gsap.min.js"></script>
+</head>
+<body>
+    <div class="landing-container">
+        <div class="landing-content">
+            <div class="landing-header">
+                <h1 class="landing-title">3D Google Ads Dashboard</h1>
+                <p class="landing-subtitle">Visualize your campaign performance in stunning 3D</p>
+            </div>
+            
+            <div class="features-container">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-chart-bar"></i>
+                    </div>
+                    <h3>Interactive 3D Visualizations</h3>
+                    <p>Explore your data with stunning 3D charts including bar, pie, donut, scatter, bubble, tree, waterfall, line, and area charts.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-user-circle"></i>
+                    </div>
+                    <h3>Multi-Account Support</h3>
+                    <p>Seamlessly switch between multiple Google Ads accounts to analyze all your campaign data.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-calendar-alt"></i>
+                    </div>
+                    <h3>Flexible Date Ranges</h3>
+                    <p>Filter your data by custom date ranges to focus on the timeframes that matter most to you.</p>
+                </div>
+            </div>
+            
+            <div class="cta-container">
+                <a href="{{ url_for('login') }}" class="cta-button">
+                    <span>Get Started</span>
+                    <i class="fas fa-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+        
+        <div class="landing-3d-container" id="landing-3d-scene">
+            <!-- 3D visualization will be rendered here -->
+        </div>
+    </div>
+    
+    <footer class="landing-footer">
+        <p>&copy; 2025 3D Google Ads Dashboard. All rights reserved.</p>
+    </footer>
+
+    <script>
+        // Initialize 3D scene
+        const scene = new THREE.Scene();
+        const container = document.getElementById('landing-3d-scene');
+        const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setClearColor(0x000000, 0);
+        container.appendChild(renderer.domElement);
+        
+        // Create 3D objects
+        const geometry = new THREE.BoxGeometry(1, 1, 1);
+        const materials = [
+            new THREE.MeshBasicMaterial({ color: 0x4285f4 }), // Google Blue
+            new THREE.MeshBasicMaterial({ color: 0xea4335 }), // Google Red
+            new THREE.MeshBasicMaterial({ color: 0xfbbc05 }), // Google Yellow
+            new THREE.MeshBasicMaterial({ color: 0x34a853 }), // Google Green
+            new THREE.MeshBasicMaterial({ color: 0x4285f4 }), // Google Blue
+            new THREE.MeshBasicMaterial({ color: 0xea4335 })  // Google Red
+        ];
+        
+        // Create multiple cubes
+        const cubes = [];
+        for (let i = 0; i < 15; i++) {
+            const cube = new THREE.Mesh(geometry, materials);
+            cube.position.x = (Math.random() - 0.5) * 10;
+            cube.position.y = (Math.random() - 0.5) * 10;
+            cube.position.z = (Math.random() - 0.5) * 10 - 5;
+            cube.scale.set(
+                0.5 + Math.random() * 1.5,
+                0.5 + Math.random() * 1.5,
+                0.5 + Math.random() * 1.5
+            );
+            scene.add(cube);
+            cubes.push({
+                mesh: cube,
+                rotationSpeed: {
+                    x: 0.01 * (Math.random() - 0.5),
+                    y: 0.01 * (Math.random() - 0.5),
+                    z: 0.01 * (Math.random() - 0.5)
+                }
+            });
+        }
+        
+        // Add some light
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambientLight);
+        
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        directionalLight.position.set(5, 5, 5);
+        scene.add(directionalLight);
+        
+        camera.position.z = 15;
+        
+        // Animation
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            cubes.forEach(cube => {
+                cube.mesh.rotation.x += cube.rotationSpeed.x;
+                cube.mesh.rotation.y += cube.rotationSpeed.y;
+                cube.mesh.rotation.z += cube.rotationSpeed.z;
+            });
+            
+            renderer.render(scene, camera);
+        }
+        
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        });
+        
+        animate();
+    </script>
+</body>
+</html>
